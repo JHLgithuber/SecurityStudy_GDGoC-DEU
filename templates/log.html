@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Log Viewer</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script> <!-- Socket.IO 클라이언트 라이브러리 -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+        #log-container {
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow-y: auto;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+        }
+        .log-entry {
+            padding: 5px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-time {
+            font-size: 0.9em;
+            color: gray;
+        }
+        .log-message {
+            font-size: 1em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="log-container"></div>
+
+    <script>
+        const logContainer = document.getElementById("log-container");
+        const socket = io(); // Socket.IO 연결
+        socket.emit('join_logger');
+
+        // 서버에서 "log" 이벤트를 수신하면 실행
+        socket.on("log", (data) => {
+            // 로그 항목 생성
+            const logEntry = document.createElement("div");
+            logEntry.className = "log-entry";
+
+            // 로그 시간
+            const logTime = document.createElement("span");
+            logTime.className = "log-time";
+            logTime.textContent = new Date().toLocaleTimeString(); // 현재 시간 추가
+
+            // 로그 메시지
+            const logMessage = document.createElement("span");
+            logMessage.className = "log-message";
+            logMessage.textContent = data; // 서버에서 받은 로그 메시지
+
+            // 로그 항목 구성
+            logEntry.appendChild(logTime);
+            logEntry.appendChild(logMessage);
+
+            // 로그 삽입 (최신 로그를 위에 추가)
+            logContainer.insertBefore(logEntry, logContainer.firstChild);
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('서버 연결이 끊어졌습니다.'+reason);
+            if(confirm('서버 연결이 끊어졌습니다.\n'+reason+'\n새로고침 하시겠습니까?')){
+                location.reload();
+            }
+            // 필요하다면 여기에 추가 처리 (UI 알림, 재연결 안내 등)
+        });
+
+        socket.on('ping', (data) => {
+            console.log('ping', data);
+            socket.emit('pong')
+        })
+    </script>
+</body>
+</html>
