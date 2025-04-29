@@ -6,8 +6,6 @@ from flask_socketio import SocketIO, emit, join_room
 import secrets
 import json
 
-
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(32)
 socketio = SocketIO(app)
