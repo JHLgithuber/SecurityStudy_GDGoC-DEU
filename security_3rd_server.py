@@ -16,7 +16,9 @@ connected_clients = {}
 @socketio.on('connect')
 def connect():
     # 클라이언트 연결 시 세션 ID 저장
-    #TODO: 딕셔너리 키에러 해결해야함
+    connected_clients[request.sid]= {
+        "IP":request.remote_addr,  # 예: 현재 IP 저장
+        "NAME":request.remote_addr}
     print(f"Client connected: SID={request.sid}, IP={request.remote_addr}")
     send_log(f"Client connected: SID={request.sid}, IP={request.remote_addr}")
 
