@@ -1,4 +1,6 @@
 import eventlet
+import logger
+
 eventlet.monkey_patch()  # 기존 네트워크 코드와 호환되도록 패치
 
 from flask import Flask, render_template, request
@@ -30,9 +32,13 @@ def handle_disconnect(*args, **kwargs):
 
 @socketio.on('rename')
 def handle_rename(data):
-    print(f'Received rename request: NAME={data}, SID={request.sid}, IP={request.remote_addr}"')
-    send_log(f'Received rename request: NAME={data}, SID={request.sid}, IP={request.remote_addr}"')
-    connected_clients[request.sid]['NAME'] = data
+    try:
+        client_info = connected_clients[request.sid]
+        print(f'Received rename request from {client_info['NAME']}: NAME={data}, SID={request.sid}, IP={request.remote_addr}"')
+        send_log(f'Received rename request from {client_info['NAME']}: NAME={data}, SID={request.sid}, IP={request.remote_addr}"')
+        connected_clients[request.sid]['NAME'] = data
+    except Exception as e:
+        logger.error(f"Error in handle_rename: {str(e)}")
 
 
 def send_log(log_msg):
@@ -40,15 +46,32 @@ def send_log(log_msg):
 
 @socketio.on('message_broadcast')
 def handle_message_broadcast(msg):
-    print(f'Received message broadcast: {msg}')
-    send_log(f'Received message broadcast: {msg}')
-    emit("message_broadcast",msg, broadcast=True, include_self=False)
+    try:
+        client_info = connected_clients[request.sid]
+        print(f'Received message broadcast from {client_info['NAME']}: {msg}')
+        send_log(f'Received message broadcast from {client_info['NAME']}: {msg}')
+        emit("message_broadcast",client_info['NAME']+":"+msg, broadcast=True, include_self=False)
+    except Exception as e:
+        logger.error(f"Error in handle_message_broadcast: {str(e)}")
 
-@socketio.on('publickey_broadcast')
-def handle_publickey_broadcast(msg):
-    print(f'Received publickey broadcast: {msg}')
-    send_log(f'Received publickey broadcast: {msg}')
-    emit("publickey_broadcast",msg, broadcast=True, include_self=False)
+key_request_sender=None
+@socketio.on('publickey_request')
+def handle_publickey_request():
+    global key_request_sender
+    key_request_sender=request.sid
+    print(f'Received publickey request from {request.sid}')
+    emit("publickey_request",broadcast=True)
+
+@socketio.on('publickey_unicast')
+def handle_publickey_unicast(msg):
+    try:
+        client_info = connected_clients[request.sid]
+        print(f'Received publickey unicast from {client_info['NAME']} to {key_request_sender}:\n{msg}')
+        send_log(f'Received publickey unicast from {client_info['NAME']} to {key_request_sender}:\n{msg}')
+        emit("publickey_unicast",client_info['NAME']+":"+msg, to=key_request_sender)
+    except Exception as e:
+        logger.error(f"Error in handle_publickey_unicast: {str(e)}")
+
 
 ping_sender=None
 @socketio.on('ping')
@@ -58,7 +81,11 @@ def ping_broadcast():
     emit("ping",broadcast=True)
 @socketio.on('pong')
 def pong_unicast():
-    emit("pong",connected_clients[request.sid]['NAME'],requto=ping_sender)
+    try:
+        client_info = connected_clients[request.sid]
+        emit("pong", client_info['NAME'], to=ping_sender)
+    except Exception as e:
+        logger.error(f"Error in pong_unicast: {str(e)}")
 
 @app.route('/log',methods=['GET'])
 def show_log_page():
